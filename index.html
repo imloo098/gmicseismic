@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GMIC — Seismic Testnet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.umd.min.js"></script>
+
+<style>
+/* ─── CSS Variables ─────────────────────────────────────── */
+:root {
+  --pink:       #ff2d8b;
+  --hot-pink:   #ff0066;
+  --magenta:    #e91e8c;
+  --neon-pink:  #ff6ec7;
+  --soft-pink:  #ffb3d9;
+  --purple:     #7c0dd2;
+  --deep-purple:#3a0060;
+  --bg:         #0d0015;
+  --bg2:        #130020;
+  --card:       rgba(255,255,255,0.04);
+  --border:     rgba(255,45,139,0.25);
+  --text:       #fff;
+  --text-dim:   rgba(255,255,255,0.55);
+  --font-head:  'Syne', sans-serif;
+  --font-mono:  'Space Mono', monospace;
+  --glow:       0 0 20px rgba(255,45,139,0.6), 0 0 60px rgba(255,45,139,0.25);
+  --glow-sm:    0 0 10px rgba(255,45,139,0.5);
+  --glow-soft:  0 0 40px rgba(255,110,199,0.15);
+}
+
+/* ─── Reset ─────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--font-head);
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  overflow-x:hidden;
+  cursor:default;
+}
+
+/* ─── Background ────────────────────────────────────────── */
+.bg-layer{
+  position:fixed;inset:0;z-index:0;
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 10%, rgba(124,13,210,0.35) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 80% 90%, rgba(255,0,102,0.3) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 60% at 50% 50%, rgba(233,30,140,0.08) 0%, transparent 80%),
+    var(--bg);
+  pointer-events:none;
+}
+.bg-grid{
+  position:fixed;inset:0;z-index:0;
+  background-image:
+    linear-gradient(rgba(255,45,139,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,45,139,0.04) 1px, transparent 1px);
+  background-size:60px 60px;
+  pointer-events:none;
+}
+.noise{
+  position:fixed;inset:0;z-index:0;
+  opacity:0.03;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  pointer-events:none;
+}
+
+/* ─── Layout ────────────────────────────────────────────── */
+#app{position:relative;z-index:1;min-height:100vh;}
+
+/* ─── Header ────────────────────────────────────────────── */
+header{
+  position:sticky;top:0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 28px;
+  background:rgba(13,0,21,0.8);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+}
+.logo{
+  font-size:1.6rem;font-weight:800;letter-spacing:-0.02em;
+  background:linear-gradient(135deg, var(--neon-pink), var(--hot-pink), var(--magenta));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  text-shadow:none;
+  filter:drop-shadow(0 0 12px rgba(255,110,199,0.7));
+}
+.logo span{font-size:0.7em;opacity:0.7;font-weight:400}
+
+.header-right{display:flex;align-items:center;gap:14px}
+.chain-badge{
+  font-family:var(--font-mono);font-size:0.65rem;
+  padding:5px 12px;border-radius:20px;
+  background:rgba(124,13,210,0.25);
+  border:1px solid rgba(124,13,210,0.5);
+  color:#c084fc;
+  display:flex;align-items:center;gap:6px;
+}
+.chain-badge::before{
+  content:'';width:6px;height:6px;border-radius:50%;
+  background:#c084fc;box-shadow:0 0 6px #c084fc;
+  animation:pulse 2s ease-in-out infinite;
+}
+
+/* ─── Buttons ───────────────────────────────────────────── */
+.btn{
+  font-family:var(--font-head);font-weight:700;font-size:0.85rem;
+  padding:10px 22px;border-radius:12px;border:none;cursor:pointer;
+  transition:all 0.2s ease;letter-spacing:0.02em;
+  position:relative;overflow:hidden;
+}
+.btn::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,0.12),transparent);
+  opacity:0;transition:opacity 0.2s;
+}
+.btn:hover::before{opacity:1}
+.btn:active{transform:scale(0.96)}
+
+.btn-primary{
+  background:linear-gradient(135deg, var(--hot-pink), var(--magenta), var(--purple));
+  color:#fff;
+  box-shadow:0 4px 20px rgba(255,0,102,0.4), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+.btn-primary:hover{
+  box-shadow:var(--glow), inset 0 1px 0 rgba(255,255,255,0.15);
+  transform:translateY(-1px);
+}
+.btn-outline{
+  background:transparent;
+  border:1.5px solid var(--border);
+  color:var(--neon-pink);
+}
+.btn-outline:hover{
+  border-color:var(--pink);
+  box-shadow:var(--glow-sm);
+}
+.btn-ghost{
+  background:rgba(255,255,255,0.06);
+  border:1px solid rgba(255,255,255,0.1);
+  color:var(--text-dim);
+}
+.btn-ghost:hover{background:rgba(255,255,255,0.1);color:#fff}
+
+/* ─── Wallet Button ─────────────────────────────────────── */
+#walletBtn{
+  font-family:var(--font-mono);font-size:0.75rem;
+}
+
+/* ─── Stats Bar ─────────────────────────────────────────── */
+.stats-bar{
+  display:flex;align-items:center;justify-content:center;gap:40px;
+  padding:16px 28px;
+  border-bottom:1px solid var(--border);
+  background:rgba(255,45,139,0.03);
+  flex-wrap:wrap;
+}
+.stat-item{text-align:center}
+.stat-value{
+  font-family:var(--font-mono);font-size:1.1rem;font-weight:700;
+  color:var(--neon-pink);
+  text-shadow:0 0 12px rgba(255,110,199,0.5);
+}
+.stat-label{font-size:0.65rem;color:var(--text-dim);margin-top:2px;letter-spacing:0.08em;text-transform:uppercase}
+
+/* ─── Main Content ──────────────────────────────────────── */
+.main{
+  display:flex;flex-direction:column;align-items:center;
+  padding:60px 24px 100px;
+  gap:60px;
+}
+
+/* ─── TAP TO GMIC Button ────────────────────────────────── */
+.tap-section{
+  display:flex;flex-direction:column;align-items:center;gap:24px;
+}
+.tap-ring{
+  position:relative;
+  width:260px;height:260px;
+  display:flex;align-items:center;justify-content:center;
+}
+.tap-ring::before,
+.tap-ring::after{
+  content:'';position:absolute;inset:0;
+  border-radius:50%;border:2px solid transparent;
+  animation:spin-ring 6s linear infinite;
+}
+.tap-ring::before{
+  border-top-color:var(--pink);
+  border-right-color:rgba(255,45,139,0.3);
+}
+.tap-ring::after{
+  inset:10px;
+  border-bottom-color:var(--neon-pink);
+  border-left-color:rgba(255,110,199,0.3);
+  animation-direction:reverse;animation-duration:4s;
+}
+@keyframes spin-ring{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+
+.tap-btn{
+  width:220px;height:220px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%, rgba(255,110,199,0.2), rgba(255,0,102,0.1) 50%, rgba(124,13,210,0.2));
+  border:2px solid rgba(255,45,139,0.4);
+  cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  transition:all 0.15s ease;
+  box-shadow:
+    0 0 40px rgba(255,45,139,0.3),
+    0 0 80px rgba(255,45,139,0.1),
+    inset 0 0 40px rgba(255,45,139,0.08);
+  position:relative;overflow:hidden;
+}
+.tap-btn::before{
+  content:'';position:absolute;inset:0;border-radius:50%;
+  background:radial-gradient(circle at 35% 25%, rgba(255,255,255,0.08), transparent 60%);
+}
+.tap-btn:hover{
+  transform:scale(1.04);
+  box-shadow:var(--glow), 0 0 120px rgba(255,45,139,0.2), inset 0 0 40px rgba(255,45,139,0.12);
+  border-color:rgba(255,45,139,0.7);
+}
+.tap-btn:active{transform:scale(0.97)}
+.tap-btn.disabled{opacity:0.5;cursor:not-allowed;transform:none!important}
+
+.tap-glyph{font-size:2.8rem;filter:drop-shadow(0 0 10px rgba(255,110,199,0.8))}
+.tap-text{
+  font-size:1.1rem;font-weight:800;letter-spacing:0.05em;
+  background:linear-gradient(135deg, #fff, var(--neon-pink));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.tap-sub{font-size:0.65rem;color:var(--text-dim);letter-spacing:0.1em}
+
+/* Streak badge */
+.streak-badge{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 20px;border-radius:20px;
+  background:rgba(255,45,139,0.1);
+  border:1px solid rgba(255,45,139,0.3);
+  font-family:var(--font-mono);font-size:0.8rem;
+}
+.streak-fire{font-size:1.2rem;animation:float 2s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+
+/* ─── Floating Particles on Tap ────────────────────────── */
+.particle{
+  position:fixed;pointer-events:none;z-index:200;
+  font-size:1.4rem;
+  animation:particle-fly 1s ease-out forwards;
+}
+@keyframes particle-fly{
+  0%{opacity:1;transform:translate(0,0) scale(1)}
+  100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(0.3)}
+}
+
+/* ─── Modal ─────────────────────────────────────────────── */
+.modal-overlay{
+  display:none;position:fixed;inset:0;z-index:500;
+  background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);
+  align-items:center;justify-content:center;
+}
+.modal-overlay.open{display:flex}
+
+.modal{
+  background:linear-gradient(145deg, #1a0030, #0f0020);
+  border:1px solid rgba(255,45,139,0.35);
+  border-radius:24px;
+  padding:32px;
+  width:340px;max-width:calc(100vw - 40px);
+  box-shadow:0 0 60px rgba(255,45,139,0.2), 0 24px 60px rgba(0,0,0,0.6);
+  animation:modal-in 0.25s ease;
+}
+@keyframes modal-in{from{opacity:0;transform:scale(0.9) translateY(20px)}to{opacity:1;transform:none}}
+
+.modal-title{
+  font-size:1.2rem;font-weight:800;margin-bottom:6px;
+  background:linear-gradient(135deg, #fff, var(--neon-pink));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.modal-sub{font-size:0.75rem;color:var(--text-dim);margin-bottom:24px}
+
+.modal-options{display:flex;flex-direction:column;gap:10px}
+.modal-option{
+  padding:14px 20px;border-radius:14px;cursor:pointer;
+  border:1.5px solid var(--border);
+  background:var(--card);
+  transition:all 0.2s;
+  display:flex;align-items:center;gap:12px;
+  font-weight:600;font-size:0.9rem;
+}
+.modal-option:hover{
+  border-color:var(--pink);
+  background:rgba(255,45,139,0.08);
+  box-shadow:var(--glow-sm);
+  transform:translateX(4px);
+}
+.modal-option .opt-icon{font-size:1.3rem}
+.modal-option .opt-desc{font-size:0.7rem;color:var(--text-dim);font-weight:400}
+
+/* Input */
+.input-group{margin-bottom:16px}
+.input-label{font-size:0.75rem;color:var(--text-dim);margin-bottom:6px;display:block;letter-spacing:0.06em}
+.gmic-input{
+  width:100%;padding:12px 16px;
+  background:rgba(255,255,255,0.05);
+  border:1.5px solid var(--border);
+  border-radius:12px;color:#fff;
+  font-family:var(--font-mono);font-size:0.8rem;
+  outline:none;transition:border-color 0.2s, box-shadow 0.2s;
+}
+.gmic-input:focus{
+  border-color:var(--pink);
+  box-shadow:0 0 0 3px rgba(255,45,139,0.15);
+}
+.gmic-input::placeholder{color:rgba(255,255,255,0.2)}
+
+/* ─── Success Toast ─────────────────────────────────────── */
+.toast{
+  position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(100px);
+  z-index:600;
+  background:linear-gradient(135deg, #1a0030, #0f0020);
+  border:1px solid rgba(255,45,139,0.4);
+  border-radius:20px;padding:20px 28px;
+  width:340px;max-width:calc(100vw - 40px);
+  box-shadow:var(--glow), 0 20px 50px rgba(0,0,0,0.5);
+  text-align:center;
+  transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1), opacity 0.4s;
+  opacity:0;
+}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast-title{font-size:1.2rem;font-weight:800;color:var(--neon-pink);margin-bottom:6px}
+.toast-msg{font-size:0.8rem;color:var(--text-dim);margin-bottom:16px;line-height:1.5}
+.toast-pts{
+  font-family:var(--font-mono);font-size:1.8rem;font-weight:700;
+  color:var(--pink);text-shadow:0 0 20px rgba(255,45,139,0.6);
+  margin-bottom:4px;
+}
+.toast-pts-label{font-size:0.65rem;color:var(--text-dim);letter-spacing:0.1em;text-transform:uppercase}
+.toast-actions{display:flex;gap:10px;margin-top:16px}
+.toast-actions .btn{flex:1;padding:10px}
+.share-btn{
+  background:linear-gradient(135deg, #000, #1a1a2e);
+  border:1.5px solid rgba(255,255,255,0.2);
+  color:#fff;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.share-btn:hover{border-color:rgba(255,255,255,0.5);box-shadow:0 0 20px rgba(255,255,255,0.1)}
+
+/* ─── Tabs ───────────────────────────────────────────────── */
+.tabs{
+  display:flex;gap:4px;
+  background:rgba(255,255,255,0.04);
+  border:1px solid var(--border);
+  border-radius:14px;padding:4px;
+  width:340px;
+}
+.tab{
+  flex:1;padding:10px;border-radius:10px;
+  font-size:0.8rem;font-weight:700;letter-spacing:0.04em;
+  cursor:pointer;transition:all 0.2s;text-align:center;
+  color:var(--text-dim);
+}
+.tab.active{
+  background:linear-gradient(135deg, var(--hot-pink), var(--magenta));
+  color:#fff;box-shadow:0 2px 12px rgba(255,0,102,0.4);
+}
+
+/* ─── Leaderboard ───────────────────────────────────────── */
+.leaderboard{width:100%;max-width:660px}
+.lb-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:20px;
+}
+.lb-title{
+  font-size:1.4rem;font-weight:800;
+  background:linear-gradient(135deg, #fff 30%, var(--neon-pink));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.lb-live{
+  font-size:0.65rem;font-family:var(--font-mono);
+  padding:4px 10px;border-radius:10px;
+  background:rgba(255,45,139,0.1);border:1px solid rgba(255,45,139,0.3);
+  color:var(--pink);
+  display:flex;align-items:center;gap:5px;
+}
+.lb-live::before{
+  content:'';width:5px;height:5px;border-radius:50%;
+  background:var(--pink);box-shadow:0 0 6px var(--pink);
+  animation:pulse 1.5s infinite;
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+.lb-row{
+  display:flex;align-items:center;gap:16px;
+  padding:14px 20px;border-radius:16px;
+  background:var(--card);border:1px solid var(--border);
+  margin-bottom:8px;
+  transition:all 0.2s;
+  position:relative;overflow:hidden;
+}
+.lb-row::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:linear-gradient(180deg, var(--hot-pink), var(--magenta));
+  opacity:0;transition:opacity 0.2s;
+}
+.lb-row:hover{
+  border-color:rgba(255,45,139,0.4);
+  background:rgba(255,45,139,0.05);
+  transform:translateX(4px);
+}
+.lb-row:hover::before{opacity:1}
+
+.lb-row.top1{
+  background:linear-gradient(135deg, rgba(255,215,0,0.06), rgba(255,45,139,0.06));
+  border-color:rgba(255,215,0,0.3);
+}
+.lb-row.top2{border-color:rgba(192,192,192,0.3)}
+.lb-row.top3{border-color:rgba(205,127,50,0.3)}
+.lb-row.mine{
+  background:rgba(255,45,139,0.08);
+  border-color:rgba(255,45,139,0.5);
+  box-shadow:0 0 20px rgba(255,45,139,0.1);
+}
+
+.lb-rank{
+  font-family:var(--font-mono);font-size:0.85rem;
+  color:var(--text-dim);width:28px;text-align:center;
+  font-weight:700;
+}
+.lb-medal{font-size:1.2rem}
+.lb-addr{
+  flex:1;font-family:var(--font-mono);font-size:0.78rem;
+  color:var(--text-dim);
+}
+.lb-addr.me{color:var(--neon-pink)}
+.lb-streak{
+  font-size:0.7rem;color:var(--text-dim);
+  display:flex;align-items:center;gap:4px;
+}
+.lb-pts{
+  font-family:var(--font-mono);font-weight:700;font-size:0.95rem;
+  background:linear-gradient(135deg, var(--neon-pink), var(--hot-pink));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  min-width:80px;text-align:right;
+}
+
+/* ─── My Stats Card ─────────────────────────────────────── */
+.my-stats{
+  width:100%;max-width:660px;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:20px;padding:24px;
+}
+.my-stats-title{font-size:0.75rem;color:var(--text-dim);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:16px}
+.my-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.my-stat{
+  background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);
+  border-radius:12px;padding:14px 10px;text-align:center;
+}
+.my-stat-val{
+  font-family:var(--font-mono);font-size:1.2rem;font-weight:700;
+  color:var(--neon-pink);text-shadow:0 0 12px rgba(255,110,199,0.4);
+}
+.my-stat-lbl{font-size:0.6rem;color:var(--text-dim);margin-top:4px;text-transform:uppercase;letter-spacing:0.07em}
+
+/* ─── Next GMIC Timer ───────────────────────────────────── */
+.next-timer{
+  font-family:var(--font-mono);font-size:0.8rem;
+  color:var(--text-dim);text-align:center;
+}
+.next-timer span{color:var(--neon-pink)}
+
+/* ─── Loading Spinner ───────────────────────────────────── */
+.spinner{
+  width:18px;height:18px;border-radius:50%;
+  border:2px solid rgba(255,110,199,0.3);
+  border-top-color:var(--neon-pink);
+  animation:spin 0.8s linear infinite;
+  display:inline-block;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ─── Recent GMIC Feed ──────────────────────────────────── */
+.feed-bubbles{
+  position:fixed;right:20px;top:120px;
+  display:flex;flex-direction:column;gap:10px;
+  z-index:50;pointer-events:none;
+}
+.feed-bubble{
+  display:flex;align-items:center;gap:8px;
+  background:rgba(20,0,35,0.9);
+  border:1px solid rgba(255,45,139,0.35);
+  border-radius:20px;padding:8px 14px;
+  backdrop-filter:blur(10px);
+  animation:slide-in 0.4s ease, fade-out 1s ease 3s forwards;
+  font-size:0.72rem;max-width:200px;
+}
+@keyframes slide-in{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:none}}
+@keyframes fade-out{from{opacity:1}to{opacity:0;transform:translateX(30px)}}
+.feed-addr{font-family:var(--font-mono);color:var(--neon-pink)}
+.feed-action{color:var(--text-dim)}
+
+/* ─── Empty state ───────────────────────────────────────── */
+.empty{
+  text-align:center;padding:40px;color:var(--text-dim);
+  font-size:0.85rem;
+}
+.empty-icon{font-size:2rem;margin-bottom:12px;opacity:0.5}
+
+/* ─── Connect Prompt ────────────────────────────────────── */
+.connect-prompt{
+  text-align:center;padding:40px 20px;
+  border:1px dashed rgba(255,45,139,0.25);
+  border-radius:20px;background:rgba(255,45,139,0.02);
+  max-width:400px;
+}
+.connect-prompt-icon{font-size:3rem;margin-bottom:16px;opacity:0.8}
+.connect-prompt-title{font-size:1.1rem;font-weight:700;margin-bottom:8px}
+.connect-prompt-desc{font-size:0.8rem;color:var(--text-dim);line-height:1.6;margin-bottom:20px}
+
+/* ─── Responsive ────────────────────────────────────────── */
+@media(max-width:500px){
+  .stats-bar{gap:20px}
+  .my-stats-grid{grid-template-columns:repeat(2,1fr)}
+  header{padding:12px 16px}
+  .logo{font-size:1.3rem}
+}
+
+/* ─── Section title ─────────────────────────────────────── */
+.section-wrap{width:100%;max-width:660px}
+</style>
+</head>
+<body>
+
+<div class="bg-layer"></div>
+<div class="bg-grid"></div>
+<div class="noise"></div>
+
+<div id="app">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">GMIC <span>✦ Seismic</span></div>
+    <div class="header-right">
+      <div class="chain-badge">Seismic Testnet</div>
+      <button class="btn btn-primary" id="walletBtn" onclick="connectWallet()">Connect Wallet</button>
+    </div>
+  </header>
+
+  <!-- Stats Bar -->
+  <div class="stats-bar" id="statsBar">
+    <div class="stat-item">
+      <div class="stat-value" id="globalCount">—</div>
+      <div class="stat-label">Global GMICs</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value" id="myGmics">—</div>
+      <div class="stat-label">Your GMICs</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value" id="myReceived">—</div>
+      <div class="stat-label">Received</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value" id="myPts">—</div>
+      <div class="stat-label">Your Points</div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- Tap Section -->
+    <div class="tap-section" id="tapSection">
+      <div class="tap-ring">
+        <button class="tap-btn" id="tapBtn" onclick="openGMICModal()">
+          <div class="tap-glyph">🌅</div>
+          <div class="tap-text">TAP TO GMIC</div>
+          <div class="tap-sub">SEISMIC TESTNET</div>
+        </button>
+      </div>
+      <div class="streak-badge" id="streakBadge">
+        <span class="streak-fire">🔥</span>
+        <span id="streakText">Connect wallet to see streak</span>
+      </div>
+      <div class="next-timer" id="nextTimer"></div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('leaderboard',this)">🏆 Leaderboard</div>
+      <div class="tab" onclick="switchTab('mystats',this)">👤 My Stats</div>
+    </div>
+
+    <!-- Leaderboard Tab -->
+    <div class="section-wrap" id="tab-leaderboard">
+      <div class="leaderboard">
+        <div class="lb-header">
+          <div class="lb-title">GM Leaderboard</div>
+          <div class="lb-live">LIVE</div>
+        </div>
+        <div id="lbRows">
+          <div class="empty"><div class="empty-icon">🏆</div>Loading leaderboard…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- My Stats Tab -->
+    <div class="section-wrap" id="tab-mystats" style="display:none">
+      <div class="my-stats">
+        <div class="my-stats-title">Your GMIC Stats</div>
+        <div id="myStatsContent">
+          <div class="connect-prompt">
+            <div class="connect-prompt-icon">🔌</div>
+            <div class="connect-prompt-title">Connect your wallet</div>
+            <div class="connect-prompt-desc">Connect your EVM wallet to start saying GMIC on Seismic Testnet and track your streak & points.</div>
+            <button class="btn btn-primary" onclick="connectWallet()">Connect Wallet</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+
+</div><!-- /app -->
+
+<!-- Feed bubbles -->
+<div class="feed-bubbles" id="feedBubbles"></div>
+
+<!-- ─── Modal ─────────────────────────────────────────── -->
+<div class="modal-overlay" id="gmicModal">
+  <div class="modal">
+    <div class="modal-title">Say GMIC 🌅</div>
+    <div class="modal-sub">Choose how you want to GMIC today</div>
+    <div class="modal-options" id="modalOptions">
+      <div class="modal-option" onclick="doGMIC('random')">
+        <span class="opt-icon">🌅</span>
+        <div>
+          <div>GMIC</div>
+          <div class="opt-desc">Send GMIC to the world</div>
+        </div>
+      </div>
+      <div class="modal-option" onclick="showFrenInput()">
+        <span class="opt-icon">🤝</span>
+        <div>
+          <div>GMIC to a Fren</div>
+          <div class="opt-desc">Send GMIC to a specific address</div>
+        </div>
+      </div>
+      <div class="modal-option btn-ghost" onclick="closeModal()">
+        <span class="opt-icon">✕</span>
+        <div>Cancel</div>
+      </div>
+    </div>
+    <div id="frenInputSection" style="display:none">
+      <div class="input-group">
+        <label class="input-label">FREN'S ADDRESS</label>
+        <input class="gmic-input" id="frenAddr" placeholder="0x... or ENS name" autocomplete="off"/>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-primary" style="flex:1" onclick="doGMIC('fren')">Send GMIC 🌅</button>
+        <button class="btn btn-ghost" onclick="hideFrenInput()">Back</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Success Toast ─────────────────────────────────── -->
+<div class="toast" id="toast">
+  <div class="toast-title">🌅 GMIC Said!</div>
+  <div class="toast-pts" id="toastPts">+1</div>
+  <div class="toast-pts-label">points earned</div>
+  <div class="toast-msg" id="toastMsg"></div>
+  <div class="toast-actions">
+    <button class="btn share-btn" onclick="shareOnX()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.259 5.628L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/></svg>
+      Share on X
+    </button>
+    <button class="btn btn-ghost" onclick="closeToast()">Close</button>
+  </div>
+</div>
+
+<script>
+// ─── Config ────────────────────────────────────────────────────────────
+const SEISMIC_CHAIN_ID = 5124;
+const RPC_URL = "https://gcp-1.seismictest.net/rpc";
+const EXPLORER = "https://seismic-testnet.socialscan.io";
+
+// ⚠️ REPLACE after deploying contract
+let CONTRACT_ADDRESS = localStorage.getItem("gmic_contract") || "0x0000000000000000000000000000000000000000";
+
+const ABI = [
+  "function sayGMIC(address recipient) external",
+  "function sayGMICRandom() external",
+  "function getUser(address) view returns (uint256,uint256,uint256,uint256,uint256)",
+  "function canGMICToday(address) view returns (bool)",
+  "function getLeaderboard(uint256) view returns (address[],uint256[])",
+  "function globalGMICCount() view returns (uint256)",
+  "function totalUsers() view returns (uint256)"
+];
+
+// ─── State ─────────────────────────────────────────────────────────────
+let provider = null;
+let signer = null;
+let contract = null;
+let roContract = null; // read-only
+let myAddress = null;
+let userData = { totalGMICs:0, gmicsReceived:0, points:0, streak:0, lastGMICDay:0 };
+let lastToastData = {};
+
+// ─── Init ──────────────────────────────────────────────────────────────
+async function init() {
+  // Read-only provider for leaderboard etc.
+  try {
+    const roProvider = new ethers.JsonRpcProvider(RPC_URL);
+    if (CONTRACT_ADDRESS !== "0x0000000000000000000000000000000000000000") {
+      roContract = new ethers.Contract(CONTRACT_ADDRESS, ABI, roProvider);
+      refreshGlobalStats();
+      refreshLeaderboard();
+    } else {
+      document.getElementById("lbRows").innerHTML = `
+        <div class="empty">
+          <div class="empty-icon">📋</div>
+          <b>Contract not deployed yet.</b><br>
+          Deploy the contract and update CONTRACT_ADDRESS in this file.
+        </div>`;
+    }
+  } catch(e) { console.warn("RO provider failed:", e); }
+
+  // Auto-reconnect if previously connected
+  if (window.ethereum && localStorage.getItem("gmic_connected")) {
+    connectWallet(true);
+  }
+
+  startTimer();
+  setInterval(refreshGlobalStats, 15000);
+  setInterval(refreshLeaderboard, 30000);
+}
+
+// ─── Wallet ────────────────────────────────────────────────────────────
+async function connectWallet(silent=false) {
+  if (!window.ethereum) {
+    if (!silent) alert("No EVM wallet detected. Please install Rabby, MetaMask, or another wallet.");
+    return;
+  }
+  try {
+    await switchToSeismic();
+    const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+    myAddress = accounts[0];
+
+    provider = new ethers.BrowserProvider(window.ethereum);
+    signer = await provider.getSigner();
+
+    if (CONTRACT_ADDRESS !== "0x0000000000000000000000000000000000000000") {
+      contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+    }
+
+    localStorage.setItem("gmic_connected","1");
+    updateWalletUI();
+    await refreshUserData();
+    updateMyStatsUI();
+
+    window.ethereum.on("accountsChanged", (accs) => {
+      myAddress = accs[0] || null;
+      if (!myAddress) { disconnectWallet(); return; }
+      updateWalletUI();
+      refreshUserData().then(updateMyStatsUI);
+    });
+  } catch(e) {
+    if (!silent) console.error("Connect error:", e);
+  }
+}
+
+async function switchToSeismic() {
+  const chainHex = "0x" + SEISMIC_CHAIN_ID.toString(16);
+  try {
+    await window.ethereum.request({ method:"wallet_switchEthereumChain", params:[{chainId:chainHex}] });
+  } catch(e) {
+    if (e.code === 4902) {
+      await window.ethereum.request({
+        method:"wallet_addEthereumChain",
+        params:[{
+          chainId: chainHex,
+          chainName: "Seismic Testnet",
+          nativeCurrency: { name:"ETH", symbol:"ETH", decimals:18 },
+          rpcUrls: [RPC_URL],
+          blockExplorerUrls: [EXPLORER]
+        }]
+      });
+    }
+  }
+}
+
+function disconnectWallet() {
+  myAddress = null; signer = null; contract = null;
+  localStorage.removeItem("gmic_connected");
+  document.getElementById("walletBtn").textContent = "Connect Wallet";
+  document.getElementById("walletBtn").onclick = connectWallet;
+}
+
+function updateWalletUI() {
+  const btn = document.getElementById("walletBtn");
+  const short = myAddress ? myAddress.slice(0,6)+"…"+myAddress.slice(-4) : "";
+  btn.textContent = short;
+  btn.onclick = () => {};
+}
+
+// ─── Data ──────────────────────────────────────────────────────────────
+async function refreshUserData() {
+  if (!myAddress || !roContract) return;
+  try {
+    const res = await roContract.getUser(myAddress);
+    userData = {
+      totalGMICs: Number(res[0]),
+      gmicsReceived: Number(res[1]),
+      points: Number(res[2]),
+      streak: Number(res[3]),
+      lastGMICDay: Number(res[4])
+    };
+    document.getElementById("myGmics").textContent = userData.totalGMICs.toLocaleString();
+    document.getElementById("myReceived").textContent = userData.gmicsReceived.toLocaleString();
+    document.getElementById("myPts").textContent = userData.points.toLocaleString();
+    updateStreakUI();
+  } catch(e) { console.warn("getUserData:", e); }
+}
+
+async function refreshGlobalStats() {
+  if (!roContract) return;
+  try {
+    const g = await roContract.globalGMICCount();
+    document.getElementById("globalCount").textContent = Number(g).toLocaleString();
+  } catch(e) {}
+}
+
+async function refreshLeaderboard() {
+  if (!roContract) return;
+  try {
+    const [addrs, pts] = await roContract.getLeaderboard(20);
+    const medals = ["🥇","🥈","🥉"];
+    const rows = addrs.map((addr, i) => {
+      const isMe = myAddress && addr.toLowerCase() === myAddress.toLowerCase();
+      const cls = i===0?"top1":i===1?"top2":i===2?"top3":isMe?"mine":"";
+      const rankDisp = i < 3 ? `<span class="lb-medal">${medals[i]}</span>` : `<span class="lb-rank">#${i+1}</span>`;
+      return `<div class="lb-row ${cls}">
+        ${rankDisp}
+        <div class="lb-addr ${isMe?"me":""}">${isMe?"→ "+addr.slice(0,6)+"…"+addr.slice(-4)+" (You)":addr.slice(0,6)+"…"+addr.slice(-4)}</div>
+        <div class="lb-pts">${Number(pts[i]).toLocaleString()}</div>
+      </div>`;
+    }).join("");
+    document.getElementById("lbRows").innerHTML = rows || `<div class="empty"><div class="empty-icon">🌅</div>No GMICs yet. Be the first!</div>`;
+    addFeedBubble(addrs[0]);
+  } catch(e) { console.warn("leaderboard:", e); }
+}
+
+// ─── Streak UI ─────────────────────────────────────────────────────────
+function updateStreakUI() {
+  const s = userData.streak;
+  const pts = streakPoints(s);
+  const canToday = userData.lastGMICDay < Math.floor(Date.now()/1000/86400);
+  document.getElementById("streakText").innerHTML =
+    s > 0
+      ? `🔥 Day ${s} streak — <b style="color:var(--neon-pink)">${pts} pts</b> next GMIC`
+      : "Start your streak! 1st GMIC = 1pt";
+  const tapBtn = document.getElementById("tapBtn");
+  if (!canToday && myAddress) {
+    tapBtn.classList.add("disabled");
+    tapBtn.querySelector(".tap-sub").textContent = "ALREADY GMIC'D TODAY";
+  } else {
+    tapBtn.classList.remove("disabled");
+    tapBtn.querySelector(".tap-sub").textContent = "SEISMIC TESTNET";
+  }
+}
+
+function streakPoints(streak) {
+  if (streak <= 1) return 1;
+  let pts = 1;
+  for (let i = 1; i < streak; i++) { pts *= 2; if (pts > 1024) { pts = 1024; break; } }
+  return pts;
+}
+
+function updateMyStatsUI() {
+  if (!myAddress) return;
+  const canToday = userData.lastGMICDay < Math.floor(Date.now()/1000/86400);
+  const nextPts = streakPoints(userData.streak + (canToday ? 1 : 0));
+  document.getElementById("myStatsContent").innerHTML = `
+    <div class="my-stats-grid">
+      <div class="my-stat"><div class="my-stat-val">${userData.totalGMICs}</div><div class="my-stat-lbl">GMICs Sent</div></div>
+      <div class="my-stat"><div class="my-stat-val">${userData.gmicsReceived}</div><div class="my-stat-lbl">Received</div></div>
+      <div class="my-stat"><div class="my-stat-val">${userData.streak}🔥</div><div class="my-stat-lbl">Streak</div></div>
+      <div class="my-stat"><div class="my-stat-val">${userData.points}</div><div class="my-stat-lbl">Points</div></div>
+    </div>
+    <div style="margin-top:16px;padding:12px 16px;background:rgba(255,45,139,0.06);border:1px solid rgba(255,45,139,0.2);border-radius:12px;font-size:0.78rem;color:var(--text-dim);line-height:1.7">
+      <b style="color:var(--neon-pink)">Streak Points Formula</b><br>
+      Day 1: 1pt → Day 2: 2pts → Day 3: 4pts → Day 4: 8pts … (doubles each day, max 1024)<br>
+      Your next GMIC earns: <b style="color:var(--pink)">+${nextPts} pts</b>
+    </div>
+  `;
+}
+
+// ─── GMIC Modal ─────────────────────────────────────────────────────────
+function openGMICModal() {
+  if (!myAddress) { connectWallet(); return; }
+  const canToday = userData.lastGMICDay < Math.floor(Date.now()/1000/86400);
+  if (!canToday) { showAlreadyGmiced(); return; }
+  document.getElementById("gmicModal").classList.add("open");
+  document.getElementById("modalOptions").style.display = "flex";
+  document.getElementById("frenInputSection").style.display = "none";
+}
+function closeModal() {
+  document.getElementById("gmicModal").classList.remove("open");
+}
+function showFrenInput() {
+  document.getElementById("modalOptions").style.display = "none";
+  document.getElementById("frenInputSection").style.display = "block";
+}
+function hideFrenInput() {
+  document.getElementById("modalOptions").style.display = "flex";
+  document.getElementById("frenInputSection").style.display = "none";
+}
+document.getElementById("gmicModal").addEventListener("click", (e) => {
+  if (e.target === document.getElementById("gmicModal")) closeModal();
+});
+
+function showAlreadyGmiced() {
+  const btn = document.getElementById("tapBtn");
+  btn.querySelector(".tap-text").textContent = "ALREADY GMIC'D!";
+  setTimeout(() => btn.querySelector(".tap-text").textContent = "TAP TO GMIC", 2000);
+}
+
+// ─── Do GMIC Transaction ───────────────────────────────────────────────
+async function doGMIC(type) {
+  if (!signer) { alert("Connect wallet first"); return; }
+  if (!contract || CONTRACT_ADDRESS === "0x0000000000000000000000000000000000000000") {
+    alert("Contract not deployed yet. Deploy the contract first and update CONTRACT_ADDRESS.");
+    return;
+  }
+
+  closeModal();
+  spawnParticles();
+
+  let recipient;
+  if (type === "fren") {
+    recipient = document.getElementById("frenAddr").value.trim();
+    if (!recipient) { alert("Enter fren's address"); return; }
+    if (!ethers.isAddress(recipient)) { alert("Invalid address"); return; }
+  } else {
+    recipient = "0x000000000000000000000000000000000000dEaD";
+  }
+
+  const tapBtn = document.getElementById("tapBtn");
+  tapBtn.querySelector(".tap-text").textContent = "SENDING…";
+  tapBtn.classList.add("disabled");
+
+  try {
+    const tx = await contract.sayGMIC(recipient);
+    await tx.wait();
+
+    await refreshUserData();
+    await refreshGlobalStats();
+    await refreshLeaderboard();
+    updateMyStatsUI();
+
+    const pts = streakPoints(userData.streak);
+    showToast(pts, userData.streak, tx.hash, type === "fren" ? recipient : null);
+    tapBtn.querySelector(".tap-text").textContent = "GMIC'D! 🌅";
+    setTimeout(() => tapBtn.querySelector(".tap-text").textContent = "TAP TO GMIC", 3000);
+  } catch(e) {
+    console.error("GMIC tx failed:", e);
+    alert("Transaction failed: " + (e.reason || e.message || "Unknown error"));
+    tapBtn.querySelector(".tap-text").textContent = "TAP TO GMIC";
+    tapBtn.classList.remove("disabled");
+  }
+}
+
+// ─── Toast ─────────────────────────────────────────────────────────────
+function showToast(pts, streak, txHash, fren) {
+  lastToastData = { pts, streak, txHash, fren };
+  document.getElementById("toastPts").textContent = "+" + pts;
+  document.getElementById("toastMsg").innerHTML =
+    `Streak: 🔥 Day ${streak}` +
+    (fren ? ` · Sent to ${fren.slice(0,6)}…${fren.slice(-4)}` : " · Global GMIC") +
+    `<br><a href="${EXPLORER}/tx/${txHash}" target="_blank" style="color:var(--neon-pink);font-size:0.7rem">View on Explorer ↗</a>`;
+  const t = document.getElementById("toast");
+  t.classList.add("show");
+}
+function closeToast() { document.getElementById("toast").classList.remove("show"); }
+
+function shareOnX() {
+  const { pts, streak } = lastToastData;
+  const text = encodeURIComponent(
+    `🌅 GMIC! Just said GM on Seismic Testnet!\n\n🔥 Day ${streak} streak · +${pts} points\n\nJoin the GMIC community on Seismic Testnet!\n#GMIC #SeismicTestnet #Web3`
+  );
+  window.open(`https://x.com/intent/post?text=${text}`, "_blank");
+}
+
+// ─── Particles ─────────────────────────────────────────────────────────
+function spawnParticles() {
+  const emojis = ["🌅","✨","🔥","💫","⭐","🌟","💥"];
+  const btn = document.getElementById("tapBtn");
+  const rect = btn.getBoundingClientRect();
+  const cx = rect.left + rect.width/2;
+  const cy = rect.top + rect.height/2;
+  for (let i = 0; i < 12; i++) {
+    const p = document.createElement("div");
+    p.className = "particle";
+    p.textContent = emojis[Math.floor(Math.random()*emojis.length)];
+    p.style.left = cx + "px"; p.style.top = cy + "px";
+    const angle = (i/12)*Math.PI*2;
+    const dist = 80 + Math.random()*80;
+    p.style.setProperty("--dx", Math.cos(angle)*dist + "px");
+    p.style.setProperty("--dy", Math.sin(angle)*dist + "px");
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 1100);
+  }
+}
+
+// ─── Feed Bubbles ──────────────────────────────────────────────────────
+let lastFeedAddr = null;
+function addFeedBubble(addr) {
+  if (!addr || addr === lastFeedAddr) return;
+  lastFeedAddr = addr;
+  const div = document.createElement("div");
+  div.className = "feed-bubble";
+  div.innerHTML = `<span class="feed-addr">${addr.slice(0,6)}…${addr.slice(-4)}</span><span class="feed-action">said GMIC 🌅</span>`;
+  const feed = document.getElementById("feedBubbles");
+  feed.prepend(div);
+  setTimeout(() => div.remove(), 4500);
+  if (feed.children.length > 3) feed.lastChild.remove();
+}
+
+// ─── Timer ─────────────────────────────────────────────────────────────
+function startTimer() {
+  function update() {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setUTCHours(0,0,0,0);
+    tomorrow.setUTCDate(tomorrow.getUTCDate()+1);
+    const diff = tomorrow - now;
+    const h = String(Math.floor(diff/3600000)).padStart(2,"0");
+    const m = String(Math.floor((diff%3600000)/60000)).padStart(2,"0");
+    const s = String(Math.floor((diff%60000)/1000)).padStart(2,"0");
+    const el = document.getElementById("nextTimer");
+    if (el) el.innerHTML = `Next GMIC in <span>${h}h ${m}m ${s}s</span>`;
+  }
+  update(); setInterval(update, 1000);
+}
+
+// ─── Tabs ──────────────────────────────────────────────────────────────
+function switchTab(name, el) {
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+  el.classList.add("active");
+  document.getElementById("tab-leaderboard").style.display = name==="leaderboard"?"block":"none";
+  document.getElementById("tab-mystats").style.display = name==="mystats"?"block":"none";
+}
+
+// ─── Contract Address Helper ───────────────────────────────────────────
+// Call this from browser console after deploying: setContractAddress("0xYOUR_ADDRESS")
+window.setContractAddress = function(addr) {
+  CONTRACT_ADDRESS = addr;
+  localStorage.setItem("gmic_contract", addr);
+  location.reload();
+}
+
+// ─── Boot ──────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
