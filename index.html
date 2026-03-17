@@ -4,6 +4,8 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>GMIC — Seismic Testnet</title>
+<link rel="icon" type="image/png" href="seismichead.png"/>
+<link rel="apple-touch-icon" href="seismichead.png"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.umd.min.js"></script>
@@ -690,6 +692,51 @@ footer a { color: var(--p2); transition: color 0.2s; }
 footer a:hover { color: var(--p1); }
 
 /* ═══════════════════════════════════════════════
+   WALLET DROPDOWN
+═══════════════════════════════════════════════ */
+.wallet-wrap { position: relative; }
+.wallet-dropdown {
+  display: none;
+  position: absolute; top: calc(100% + 10px); right: 0;
+  width: 220px;
+  background: linear-gradient(145deg, rgba(14,0,28,0.98), rgba(8,0,16,0.98));
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 8px;
+  box-shadow: var(--glow-pink), 0 20px 50px rgba(0,0,0,0.7);
+  z-index: 200;
+  animation: pop-in 0.2s cubic-bezier(.34,1.56,.64,1);
+}
+.wallet-wrap.open .wallet-dropdown { display: block; }
+.wallet-info {
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--glass-border);
+  margin-bottom: 6px;
+}
+.wallet-addr-full {
+  font-family: var(--ff-mono); font-size: 0.65rem;
+  color: var(--p2); word-break: break-all; line-height: 1.5;
+}
+.wallet-chain {
+  font-size: 0.6rem; color: var(--muted); margin-top: 4px;
+  display: flex; align-items: center; gap: 5px;
+}
+.wallet-chain::before {
+  content: ''; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--a1); box-shadow: 0 0 6px var(--a1);
+}
+.w-menu-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-radius: 10px; cursor: none;
+  font-size: 0.8rem; font-weight: 500;
+  transition: background 0.15s;
+}
+.w-menu-item:hover { background: rgba(255,255,255,0.05); }
+.w-menu-item.danger { color: #ff4466; }
+.w-menu-item.danger:hover { background: rgba(255,68,102,0.08); }
+.w-menu-icon { font-size: 1rem; width: 20px; text-align: center; }
+
+/* ═══════════════════════════════════════════════
    SCROLL REVEAL
 ═══════════════════════════════════════════════ */
 .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.6s ease, transform 0.6s ease; }
@@ -713,7 +760,24 @@ footer a:hover { color: var(--p1); }
   </div>
   <div class="header-right">
     <div class="chain-pill"><div class="chain-dot"></div>Chain 5124</div>
-    <button class="wallet-btn" id="walletBtn" onclick="connectWallet()">Connect Wallet</button>
+    <div class="wallet-wrap" id="walletWrap">
+      <button class="wallet-btn" id="walletBtn" onclick="toggleWalletMenu()">Connect Wallet</button>
+      <div class="wallet-dropdown" id="walletDropdown">
+        <div class="wallet-info">
+          <div class="wallet-addr-full" id="walletAddrFull">—</div>
+          <div class="wallet-chain">Seismic Testnet · Chain 5124</div>
+        </div>
+        <div class="w-menu-item" onclick="copyAddress()">
+          <span class="w-menu-icon">📋</span> Copy Address
+        </div>
+        <a class="w-menu-item" id="explorerLink" href="#" target="_blank">
+          <span class="w-menu-icon">🔍</span> View on Explorer
+        </a>
+        <div class="w-menu-item danger" onclick="disconnectWallet()">
+          <span class="w-menu-icon">🔌</span> Disconnect
+        </div>
+      </div>
+    </div>
   </div>
 </header>
 
@@ -1115,8 +1179,12 @@ async function connectWallet(silent=false) {
     localStorage.setItem('gmic_connected','1');
     updateWalletBtn();
     await refreshUser();
-    renderMyStats();
-    window.ethereum.on('accountsChanged', a => { myAddr=a[0]||null; if(!myAddr){disconnect();return;} updateWalletBtn(); refreshUser().then(renderMyStats); });
+    window.ethereum.on('accountsChanged', a => {
+      myAddr=a[0]||null;
+      if(!myAddr){ disconnectWallet(); return; }
+      updateWalletBtn();
+      refreshUser();
+    });
   } catch(e) { if (!silent) console.error(e); }
 }
 async function switchChain() {
@@ -1130,13 +1198,55 @@ async function switchChain() {
     }]});
   }
 }
-function disconnect() {
-  myAddr=null; signer=null; contract=null; localStorage.removeItem('gmic_connected');
-  document.getElementById('walletBtn').textContent = 'Connect Wallet';
+function toggleWalletMenu() {
+  if (!myAddr) { connectWallet(); return; }
+  document.getElementById('walletWrap').classList.toggle('open');
 }
+
 function updateWalletBtn() {
-  const s = myAddr ? myAddr.slice(0,6)+'…'+myAddr.slice(-4) : '';
-  document.getElementById('walletBtn').textContent = s;
+  const short = myAddr ? myAddr.slice(0,6)+'…'+myAddr.slice(-4) : 'Connect Wallet';
+  document.getElementById('walletBtn').textContent = short;
+  document.getElementById('walletBtn').onclick = () => toggleWalletMenu();
+  if (myAddr) {
+    document.getElementById('walletAddrFull').textContent = myAddr;
+    document.getElementById('explorerLink').href = `${EXPLORER}/address/${myAddr}`;
+  }
+}
+// Close dropdown when clicking outside
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('walletWrap');
+  if (!wrap.contains(e.target)) wrap.classList.remove('open');
+});
+
+function copyAddress() {
+  if (!myAddr) return;
+  navigator.clipboard.writeText(myAddr);
+  const btn = document.querySelector('.w-menu-item');
+  btn.innerHTML = '<span class="w-menu-icon">✅</span> Copied!';
+  setTimeout(() => btn.innerHTML = '<span class="w-menu-icon">📋</span> Copy Address', 1500);
+  document.getElementById('walletWrap').classList.remove('open');
+}
+
+function disconnectWallet() {
+  myAddr = null; signer = null; contract = null;
+  localStorage.removeItem('gmic_connected');
+  userData = {totalGMICs:0,gmicsReceived:0,points:0,streak:0,lastGMICDay:0};
+  document.getElementById('walletBtn').textContent = 'Connect Wallet';
+  document.getElementById('walletBtn').onclick = () => connectWallet();
+  document.getElementById('walletWrap').classList.remove('open');
+  // Reset orb
+  const orb = document.getElementById('tapOrb');
+  orb.classList.remove('disabled');
+  document.getElementById('orbSub').textContent = 'Seismic Testnet';
+  document.getElementById('streakText').textContent = 'Connect wallet to view streak';
+  document.getElementById('streakPts').textContent = '';
+  document.getElementById('statsContent').innerHTML = `
+    <div class="connect-prompt">
+      <div class="prompt-icon">🔌</div>
+      <div class="prompt-title">Connect Wallet</div>
+      <div class="prompt-desc">Connect your wallet to track GMICs, streaks, and points.</div>
+      <button class="btn btn-pink" onclick="connectWallet()" style="width:100%;padding:13px;border-radius:12px;border:none;cursor:none;font-family:var(--ff-body);font-size:0.85rem;font-weight:600;background:linear-gradient(135deg,var(--p1),var(--a2));color:#fff;box-shadow:0 4px 20px rgba(255,0,128,0.3)">Connect Wallet</button>
+    </div>`;
 }
 
 /* ═══════════════════════════════════════════════
