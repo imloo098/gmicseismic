@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>GMIC — Seismic Testnet</title>
+<title>GMIC Seismic Testnet</title>
 <link rel="icon" type="image/png" href="seismichead.png"/>
 <link rel="apple-touch-icon" href="seismichead.png"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -1179,11 +1179,12 @@ async function connectWallet(silent=false) {
     localStorage.setItem('gmic_connected','1');
     updateWalletBtn();
     await refreshUser();
+    renderMyStats();
     window.ethereum.on('accountsChanged', a => {
       myAddr=a[0]||null;
       if(!myAddr){ disconnectWallet(); return; }
       updateWalletBtn();
-      refreshUser();
+      refreshUser().then(renderMyStats);
     });
   } catch(e) { if (!silent) console.error(e); }
 }
@@ -1275,7 +1276,8 @@ async function refreshUser() {
     const canToday = Boolean(await ro.canGMICToday(myAddr));
     userData = { totalGMICs:Number(r[0]), gmicsReceived:Number(r[1]), points:Number(r[2]), streak:Number(r[3]), lastGMICDay:Number(r[4]), canGMICToday:canToday };
     updateStreakUI();
-  } catch(e) { console.warn(e); }
+    renderMyStats();
+  } catch(e) { console.error('refreshUser error:', e); }
 }
 
 function spts(streak) {
