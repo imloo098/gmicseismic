@@ -1153,7 +1153,7 @@ async function refreshGlobal() {
   try {
     const ro = await getRO();
     const [g, u] = await Promise.all([ro.globalGMICCount(), ro.totalUsers()]);
-    buildTicker(g, u, userData.totalGMICs||'—', userData.gmicsReceived||'—', userData.points||'—');
+    buildTicker(Number(g), Number(u), userData.totalGMICs||'—', userData.gmicsReceived||'—', userData.points||'—');
   } catch(e) {}
 }
 
@@ -1162,7 +1162,8 @@ async function refreshUser() {
   try {
     const ro = await getRO();
     const r = await ro.getUser(myAddr);
-    userData = { totalGMICs:+r[0], gmicsReceived:+r[1], points:+r[2], streak:+r[3], lastGMICDay:+r[4] };
+    const canToday = Boolean(await ro.canGMICToday(myAddr));
+    userData = { totalGMICs:Number(r[0]), gmicsReceived:Number(r[1]), points:Number(r[2]), streak:Number(r[3]), lastGMICDay:Number(r[4]), canGMICToday:canToday };
     updateStreakUI();
   } catch(e) { console.warn(e); }
 }
@@ -1173,7 +1174,7 @@ function spts(streak) {
 }
 
 function updateStreakUI() {
-  const canToday = userData.lastGMICDay < Math.floor(Date.now()/1000/86400);
+  const canToday = userData.canGMICToday !== undefined ? userData.canGMICToday : userData.lastGMICDay < Math.floor(Date.now()/1000/86400);
   const s = userData.streak;
   const nextPts = spts(s + (canToday?1:0));
   document.getElementById('streakText').textContent = s > 0 ? `Day ${s} streak` : 'Start your streak!';
@@ -1201,7 +1202,7 @@ async function refreshLeaderboard() {
       return `<div class="lb-row ${rCls}">
         ${rankHtml}
         <div class="lb-info"><div class="lb-addr ${isMe?'me':''}">${isMe?'→ '+addr.slice(0,6)+'…'+addr.slice(-4)+' (You)':addr.slice(0,6)+'…'+addr.slice(-4)}</div></div>
-        <div class="lb-pts">${(+pts[i]).toLocaleString()}</div>
+        <div class="lb-pts">${Number(pts[i]).toLocaleString()}</div>
       </div>`;
     }).join('');
     document.getElementById('lbList').innerHTML = rows;
@@ -1212,7 +1213,7 @@ async function refreshLeaderboard() {
 
 function renderMyStats() {
   if (!myAddr) return;
-  const canToday = userData.lastGMICDay < Math.floor(Date.now()/1000/86400);
+  const canToday = userData.canGMICToday !== undefined ? userData.canGMICToday : userData.lastGMICDay < Math.floor(Date.now()/1000/86400);
   document.getElementById('statsContent').innerHTML = `
     <div class="stats-grid">
       <div class="stat-card"><div class="stat-num">${userData.totalGMICs}</div><div class="stat-lbl">GMICs Sent</div></div>
@@ -1233,7 +1234,7 @@ function renderMyStats() {
 ═══════════════════════════════════════════════ */
 function openModal() {
   if (!myAddr) { connectWallet(); return; }
-  const canToday = userData.lastGMICDay < Math.floor(Date.now()/1000/86400);
+  const canToday = userData.canGMICToday !== undefined ? userData.canGMICToday : userData.lastGMICDay < Math.floor(Date.now()/1000/86400);
   if (!canToday) { flashOrb(); return; }
   document.getElementById('overlay').classList.add('open');
   document.getElementById('modalBody').innerHTML = `
